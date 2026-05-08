@@ -1,11 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Web;
+﻿using Autofac;
+using Autofac.Integration.WebApi;
+using System.Reflection;
 using System.Web.Http;
-using System.Web.Mvc;
-using System.Web.Optimization;
-using System.Web.Routing;
+using CollectorApp.Api.Interfaces;
+using CollectorApp.Api.Services;
+using AutoMapper;
+using CollectorApp.Api.Mappings;
 
 namespace CollectorApp.Api
 {
@@ -13,11 +13,28 @@ namespace CollectorApp.Api
     {
         protected void Application_Start()
         {
-            AreaRegistration.RegisterAllAreas();
+            var builder = new ContainerBuilder();
+
+            // 1. Rejestracja kontrolerów Web API
+            builder.RegisterApiControllers(Assembly.GetExecutingAssembly());
+
+            // 2. Rejestracja naszych serwisów
+            builder.RegisterType<BarcodeService>().As<IBarcodeService>().InstancePerRequest();
+            // builder.RegisterType<AuthService>().As<IAuthService>().InstancePerRequest(); // Odkomentuj jak przeniesiesz AuthService
+
+            // 3. Konfiguracja AutoMappera
+            var mapperConfig = new MapperConfiguration(cfg =>
+            {
+                cfg.AddProfile(new MappingProfile());
+            });
+            builder.RegisterInstance(mapperConfig.CreateMapper()).As<IMapper>().SingleInstance();
+
+            // 4. Budowanie kontenera
+            var container = builder.Build();
+            GlobalConfiguration.Configuration.DependencyResolver = new AutofacWebApiDependencyResolver(container);
+
+            // Standardowe konfiguracje Web API
             GlobalConfiguration.Configure(WebApiConfig.Register);
-            FilterConfig.RegisterGlobalFilters(GlobalFilters.Filters);
-            RouteConfig.RegisterRoutes(RouteTable.Routes);
-            BundleConfig.RegisterBundles(BundleTable.Bundles);
         }
     }
 }
