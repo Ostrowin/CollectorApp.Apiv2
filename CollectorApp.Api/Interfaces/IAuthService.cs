@@ -10,6 +10,7 @@ namespace CollectorApp.Api.Interfaces
 {
     public interface IAuthService
     {
-        bool Authenticate(LoginModel model);
+        bool Authenticate(LoginModel model); 
+        AuthResponseDto GenerateToken(string fullName);
     }
 }

@@ -1,6 +1,7 @@
-﻿using System.Web.Http;
-using CollectorApp.Api.Models;
+﻿using System;
+using System.Web.Http;
 using CollectorApp.Api.Interfaces;
+using CollectorApp.Api.Models;
 
 namespace CollectorApp.Api.Controllers
 {
@@ -18,26 +19,18 @@ namespace CollectorApp.Api.Controllers
         [Route("login")]
         public IHttpActionResult Login([FromBody] LoginModel model)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             try
             {
-                bool isAuthenticated = _authService.Authenticate(model);
-
-                if (isAuthenticated)
+                if (_authService.Authenticate(model))
                 {
-                    return Ok(new
-                    {
-                        Success = true,
-                        Message = "Zalogowano pomyślnie",
-                        User = model.FullName
-                    });
+                    var response = _authService.GenerateToken($"{model.Name} {model.Surname}".Trim());
+
+                    return Ok(response);
                 }
 
                 return Unauthorized();
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 return InternalServerError(ex);
             }

@@ -4,6 +4,7 @@ using CollectorApp.Api.Services;
 
 namespace CollectorApp.Api.Controllers
 {
+    [Authorize]
     [RoutePrefix("api/subiekt")]
     public class SubiektGTController : ApiController
     {

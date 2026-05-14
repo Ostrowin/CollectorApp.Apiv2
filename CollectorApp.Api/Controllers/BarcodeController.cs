@@ -9,6 +9,7 @@ using CollectorApp.Api.Interfaces;
 
 namespace CollectorApp.Api.Controllers
 {
+    [Authorize]
     [RoutePrefix("api/barcodes")]
     public class BarcodesController : ApiController
     {

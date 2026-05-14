@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Web.Http;
+using CollectorApp.Api.Services;
 
 namespace CollectorApp.Api
 {
@@ -10,6 +11,7 @@ namespace CollectorApp.Api
         public static void Register(HttpConfiguration config)
         {
             // Web API configuration and services
+            config.MessageHandlers.Add(new JwtHandler());
 
             // Web API routes
             config.MapHttpAttributeRoutes();

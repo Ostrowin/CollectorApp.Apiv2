@@ -1,13 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Web;
 
 namespace CollectorApp.Api.Dtos
 {
     public class AuthResponseDto
     {
-        public string Token { get; set; } = string.Empty;
+        public string Token { get; set; }
         public DateTime Expiration { get; set; }
+        public string UserName { get; set; }
     }
 }
