@@ -15,6 +15,7 @@ namespace CollectorApp.Api
             // Web API configuration and services
             config.MessageHandlers.Add(new JwtHandler());
             config.Services.Replace(typeof(IExceptionLogger), new GlobalExceptionLogger());
+            config.Services.Replace(typeof(IExceptionHandler), new GlobalExceptionHandler());
             // Web API routes
             config.MapHttpAttributeRoutes();
 

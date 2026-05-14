@@ -270,6 +270,7 @@
     </Compile>
     <Compile Include="Infrastructure\ConfigHelper.cs" />
     <Compile Include="Infrastructure\ExceptionLogger.cs" />
+    <Compile Include="Infrastructure\GlobalExceptionHandler.cs" />
     <Compile Include="Infrastructure\JwtHandler.cs" />
     <Compile Include="Infrastructure\SerilogConfig.cs" />
     <Compile Include="Interfaces\IAuthService.cs" />
