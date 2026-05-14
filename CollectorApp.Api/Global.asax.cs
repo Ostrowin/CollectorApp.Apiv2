@@ -3,10 +3,11 @@ using System.Web.Http;
 using Autofac;
 using Autofac.Integration.WebApi;
 using AutoMapper;
+using CollectorApp.Api.Infrastructure;
 using CollectorApp.Api.Interfaces;
 using CollectorApp.Api.Mappings;
 using CollectorApp.Api.Services;
-using Swashbuckle.Application;
+using Serilog;
 
 namespace CollectorApp.Api
 {
@@ -16,7 +17,9 @@ namespace CollectorApp.Api
         {
             var builder = new ContainerBuilder();
 
+
             // 1. Rejestracja kontrolerów Web API
+            SerilogConfig.Configure();
             builder.RegisterApiControllers(Assembly.GetExecutingAssembly());
 
             // 2. Rejestracja naszych serwisów
@@ -38,6 +41,11 @@ namespace CollectorApp.Api
             GlobalConfiguration.Configure(WebApiConfig.Register);
 
             builder.RegisterType<SubiektGTService>().AsSelf().InstancePerRequest();
+        }
+
+        protected void Application_End()
+        {
+            Log.CloseAndFlush();
         }
     }
 }

@@ -10,6 +10,7 @@ using CollectorApp.Api.Interfaces;
 using CollectorApp.Api.Models;
 using InsERT;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
 
 
 
@@ -19,6 +20,8 @@ namespace CollectorApp.Api.Services
     {
         public bool Authenticate(LoginModel model)
         {
+            Log.Information("Próba logowania użytkownika: {Surname} {Name}", model.Surname, model.Name);
+
             if (model == null || string.IsNullOrWhiteSpace(model.Name) || string.IsNullOrWhiteSpace(model.Surname))
                 return false;
 
@@ -47,15 +50,21 @@ namespace CollectorApp.Api.Services
 
                     if (subiektTest != null)
                     {
+                        Log.Information("Użytkownik {FullName} uwierzytelniony poprawnie w Subiekcie.", fullName);
                         isAuthenticated = true;
                         var s = (Subiekt)subiektTest;
                         s.Zakoncz();
                         Marshal.ReleaseComObject(s);
+                    } 
+                    else
+                    {
+                        Log.Warning("Nieudana próba logowania dla: {FullName}", fullName);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Authentication error: {ex.StackTrace}");
+
+                    Log.Error(ex, "Wystąpił błąd podczas próby logowania użytkownika: {FullName}", fullName);
                     isAuthenticated = false;
                 }
                 finally

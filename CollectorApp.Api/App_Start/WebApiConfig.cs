@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Web.Http;
+using System.Web.Http.ExceptionHandling;
+using CollectorApp.Api.Infrastructure;
 using CollectorApp.Api.Services;
 
 namespace CollectorApp.Api
@@ -12,7 +14,7 @@ namespace CollectorApp.Api
         {
             // Web API configuration and services
             config.MessageHandlers.Add(new JwtHandler());
-
+            config.Services.Replace(typeof(IExceptionLogger), new GlobalExceptionLogger());
             // Web API routes
             config.MapHttpAttributeRoutes();
 

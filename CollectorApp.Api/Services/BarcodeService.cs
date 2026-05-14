@@ -1,15 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Data.Entity;
 using System.Threading.Tasks;
-using System.Web;
 using AutoMapper;
 using CollectorApp.Api.Data;
 using CollectorApp.Api.Dtos;
+using CollectorApp.Api.Exceptions;
 using CollectorApp.Api.Interfaces;
 using CollectorApp.Api.Models;
-using System.Data.Entity;
-using CollectorApp.Api.Exceptions;
+using Serilog;
 
 namespace CollectorApp.Api.Services
 {
@@ -25,11 +24,21 @@ namespace CollectorApp.Api.Services
         }
         public async Task<BarcodeResponseDto> CreateAsync(BarcodeCreateDto request)
         {
-            var barcode = _mapper.Map<Barcode>(request);
-            barcode.CreatedAt = DateTime.UtcNow;
-            _context.Barcodes.Add(barcode);
-            await _context.SaveChangesAsync();
-            return _mapper.Map<BarcodeResponseDto>(barcode);
+            Log.Information("Dodawanie nowego kodu kreskowego: {Barcode}", request.Value);
+            try
+            {
+                var barcode = _mapper.Map<Barcode>(request);
+                barcode.CreatedAt = DateTime.UtcNow;
+                _context.Barcodes.Add(barcode);
+                await _context.SaveChangesAsync();
+                Log.Debug("Kod kreskowy zapisany pomyślnie w SQLite.");
+                return _mapper.Map<BarcodeResponseDto>(barcode);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Błąd podczas zapisu kodu kreskowego do bazy.");
+                throw;
+            }
         }
         public async Task DeleteAsync(int id)
         {

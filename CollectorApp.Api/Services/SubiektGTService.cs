@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using CollectorApp.Api.Dtos.SubiektDtos;
 using InsERT;
+using Serilog;
 
 namespace CollectorApp.Api.Services
 {
@@ -14,6 +15,8 @@ namespace CollectorApp.Api.Services
     {
         public T Execute<T>(Func<Subiekt, T> action)
         {
+            Log.Information("Rozpoczynanie operacji w Subiekt GT...");
+            var sw = Stopwatch.StartNew();
             T result = default(T);
             Exception exception = null;
 
@@ -34,17 +37,21 @@ namespace CollectorApp.Api.Services
                     gt.Operator = ConfigurationManager.AppSettings["SubiektOperator"];
                     gt.OperatorHaslo = ConfigurationManager.AppSettings["SubiektOperatorPass"];
 
+                    Log.Debug("Inicjalizacja Sfery dla operatora: {Operator}", gt.Operator);
                     subiekt = (Subiekt)gt.Uruchom(1, 4);
 
                     if (subiekt == null)
                     {
+                        Log.Error("Nie udało się uruchomić Sfery Subiekta GT.");
                         throw new Exception("Błąd inicjalizacji Sfery. Sprawdź parametry logowania.");
                     }
-
+                    sw.Stop();
+                    Log.Information("Operacja zakończona sukcesem w {Elapsed}ms", sw.ElapsedMilliseconds);
                     result = action(subiekt);
                 }
                 catch (Exception ex)
                 {
+                    Log.Error(ex, "Wystąpił krytyczny błąd podczas komunikacji z Subiekt GT");
                     exception = ex;
                 }
                 finally
@@ -69,7 +76,6 @@ namespace CollectorApp.Api.Services
             {
                 throw exception;
             }
-
             return result;
         }
 
@@ -113,7 +119,7 @@ namespace CollectorApp.Api.Services
                     }
                 }
             }
-
+            Log.Information("Pobrano {Count} magazynów z bazy Subiekt GT", warehouses.Count);
             return warehouses;
         }
 
@@ -136,7 +142,7 @@ namespace CollectorApp.Api.Services
 
                     Marshal.ReleaseComObject(kh);
                 }
-
+                Log.Information("Pobrano {Count} klientów z Subiekt GT", customers.Count);
                 return customers;
             });
         }
@@ -167,7 +173,7 @@ namespace CollectorApp.Api.Services
 
                     if (products.Count >= 100) break;
                 }
-
+                Log.Information("Pobrano {Count} produktów z Subiekt GT dla magazynu ID: {WarehouseId}", products.Count, warehouseId);
                 return products;
             });
         }
