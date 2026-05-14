@@ -61,6 +61,11 @@ namespace CollectorApp.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Pobiera listę produktów z wybranego magazynu Subiekta GT.
+        /// </summary>
+        /// <param name="warehouseId">ID magazynu w Subiekcie</param>
+        /// <returns>Lista produktów ze stanami i kodami kreskowymi</returns>
         [HttpGet]
         [Route("products/{warehouseId:int}")]
         public IHttpActionResult GetProducts(int warehouseId)

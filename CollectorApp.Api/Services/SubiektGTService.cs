@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using CollectorApp.Api.Dtos.SubiektDtos;
+using CollectorApp.Api.Infrastructure;
 using InsERT;
 using Serilog;
 
@@ -87,15 +88,17 @@ namespace CollectorApp.Api.Services
 
         public List<WarehouseDto> GetWarehouses()
         {
-            var warehouses = new List<WarehouseDto>();
-
-            using (var connection = new SqlConnection(BuildSubiektConnectionString()))
+            return CacheService.GetOrSet("subiekt_warehouses", () =>
             {
-                connection.Open();
+                var warehouses = new List<WarehouseDto>();
 
-                using (var command = connection.CreateCommand())
+                using (var connection = new SqlConnection(BuildSubiektConnectionString()))
                 {
-                    command.CommandText = @"
+                    connection.Open();
+
+                    using (var command = connection.CreateCommand())
+                    {
+                        command.CommandText = @"
                         SELECT
                             mag_Id,
                             mag_Symbol,
@@ -104,77 +107,85 @@ namespace CollectorApp.Api.Services
                         FROM dbo.sl_Magazyn
                         ORDER BY mag_Nazwa, mag_Symbol";
 
-                    using (var reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
+                        using (var reader = command.ExecuteReader())
                         {
-                            warehouses.Add(new WarehouseDto
+                            while (reader.Read())
                             {
-                                Id = reader.GetInt32(0),
-                                Symbol = reader.IsDBNull(1) ? null : reader.GetString(1),
-                                Name = reader.IsDBNull(2) ? null : reader.GetString(2),
-                                Description = reader.IsDBNull(3) ? null : reader.GetString(3)
-                            });
+                                warehouses.Add(new WarehouseDto
+                                {
+                                    Id = reader.GetInt32(0),
+                                    Symbol = reader.IsDBNull(1) ? null : reader.GetString(1),
+                                    Name = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                    Description = reader.IsDBNull(3) ? null : reader.GetString(3)
+                                });
+                            }
                         }
                     }
                 }
-            }
-            Log.Information("Pobrano {Count} magazynów z bazy Subiekt GT", warehouses.Count);
-            return warehouses;
+                Log.Information("Pobrano {Count} magazynów z bazy Subiekt GT", warehouses.Count);
+                return warehouses;
+            });
         }
 
         public List<CustomerDto> GetCustomers()
         {
-            return Execute(subiekt =>
+            return CacheService.GetOrSet("subiekt_customers", () =>
             {
-                var customers = new List<CustomerDto>();
-
-                foreach (Kontrahent kh in subiekt.Kontrahenci)
+                return Execute(subiekt =>
                 {
-                    customers.Add(new CustomerDto
-                    {
-                        Id = (int)kh.Identyfikator,
-                        Symbol = kh.Symbol?.ToString(),
-                        Name = kh.Nazwa?.ToString(),
-                        TaxId = kh.NIP?.ToString(),
-                        IsActive = Convert.ToBoolean(kh.Aktywny)
-                    });
+                    var customers = new List<CustomerDto>();
 
-                    Marshal.ReleaseComObject(kh);
-                }
-                Log.Information("Pobrano {Count} klientów z Subiekt GT", customers.Count);
-                return customers;
+                    foreach (Kontrahent kh in subiekt.Kontrahenci)
+                    {
+                        customers.Add(new CustomerDto
+                        {
+                            Id = (int)kh.Identyfikator,
+                            Symbol = kh.Symbol?.ToString(),
+                            Name = kh.Nazwa?.ToString(),
+                            TaxId = kh.NIP?.ToString(),
+                            IsActive = Convert.ToBoolean(kh.Aktywny)
+                        });
+
+                        Marshal.ReleaseComObject(kh);
+                    }
+                    Log.Information("Pobrano {Count} klientów z Subiekt GT", customers.Count);
+                    return customers;
+                });
             });
         }
 
         public List<ProductDto> GetProducts(int warehouseId)
         {
-            return Execute(subiekt =>
+            string key = $"products_wh_{warehouseId}";
+            return CacheService.GetOrSet(key, () =>
             {
-                var products = new List<ProductDto>();
-
-
-                foreach (Towar tw in subiekt.Towary)
+                return Execute(subiekt =>   
                 {
-                    //double currentStock = (double)tw.StanMaks(warehouseId);
-                    
-                    products.Add(new ProductDto
+                    var products = new List<ProductDto>();
+
+
+                    foreach (Towar tw in subiekt.Towary)
                     {
-                        Id = (int)tw.Identyfikator,
-                        Symbol = tw.Symbol?.ToString(),
-                        Name = tw.Nazwa?.ToString(),
-                        Barcode = tw.KodyKreskowe?.Podstawowy?.ToString(),
-                        Unit = tw.Miary?.Podstawowa?.ToString(),
-                        //Price = Convert.ToDecimal(tw.Ceny.Liczba),
-                        //Stock = currentStock
-                    });
+                        //double currentStock = (double)tw.StanMaks(warehouseId);
 
-                    Marshal.ReleaseComObject(tw);
+                        products.Add(new ProductDto
+                        {
+                            Id = (int)tw.Identyfikator,
+                            Symbol = tw.Symbol?.ToString(),
+                            Name = tw.Nazwa?.ToString(),
+                            Barcode = tw.KodyKreskowe?.Podstawowy?.ToString(),
+                            Unit = tw.Miary?.Podstawowa?.ToString(),
+                            //Price = Convert.ToDecimal(tw.Ceny.Liczba),
+                            //Stock = currentStock
+                        });
 
-                    if (products.Count >= 100) break;
-                }
-                Log.Information("Pobrano {Count} produktów z Subiekt GT dla magazynu ID: {WarehouseId}", products.Count, warehouseId);
-                return products;
+                        Marshal.ReleaseComObject(tw);
+
+                        if (products.Count >= 100) break;
+                    }
+                    Log.Information("Pobrano {Count} produktów z Subiekt GT dla magazynu ID: {WarehouseId}", products.Count, warehouseId);
+                    return products;
+                });
             });
         }
 
@@ -209,6 +220,5 @@ namespace CollectorApp.Api.Services
             return builder.ConnectionString;
         }
 
-       
     }
 }
