@@ -10,7 +10,6 @@ namespace CollectorApp.Api.Interfaces
 {
     public interface IAuthService
     {
-        Task RegisterAsync(LoginModel model);
-        Task<AuthResponseDto> LoginAsync(LoginModel model);
+        bool Authenticate(LoginModel model);
     }
 }

@@ -1,76 +1,208 @@
-﻿//using System;
-//using System.Collections.Generic;
-//using System.Linq;
-//using System.Runtime.InteropServices;
-//using System.Threading;
-//using System.Web;
+using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Data.SqlClient;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Threading;
+using CollectorApp.Api.Dtos.SubiektDtos;
+using InsERT;
 
-//namespace CollectorApp.Api.Services
-//{
-//    public class SubiektGTService : IDisposable
-//    {
-//        private readonly IConfiguration _configuration;
-//        private Subiekt? _subiekt;
+namespace CollectorApp.Api.Services
+{
+    public class SubiektGTService : IDisposable
+    {
+        public T Execute<T>(Func<Subiekt, T> action)
+        {
+            T result = default(T);
+            Exception exception = null;
 
-//        public SubiektGTService(IConfiguration configuration)
-//        {
-//            _configuration = configuration;
-//        }
+            var thread = new Thread(() =>
+            {
+                GT gt = null;
+                Subiekt subiekt = null;
 
-//        public T Execute<T>(Func<Subiekt, T> action)
-//        {
-//            T result = default!;
-//            Exception? exception = null;
+                try
+                {
+                    gt = new GT();
+                    gt.Produkt = ProduktEnum.gtaProduktSubiekt;
+                    gt.Serwer = ConfigurationManager.AppSettings["SubiektServer"];
+                    gt.Baza = ConfigurationManager.AppSettings["SubiektDatabase"];
+                    gt.Autentykacja = AutentykacjaEnum.gtaAutentykacjaMieszana;
+                    gt.Uzytkownik = ConfigurationManager.AppSettings["SubiektUser"];
+                    gt.UzytkownikHaslo = ConfigurationManager.AppSettings["SubiektPass"];
+                    gt.Operator = ConfigurationManager.AppSettings["SubiektOperator"];
+                    gt.OperatorHaslo = ConfigurationManager.AppSettings["SubiektOperatorPass"];
 
-//            var thread = new Thread(() =>
-//            {
-//                try
-//                {
-//                    var gt = new GT();
-//                    gt.Produkt = ProduktEnum.gtaProduktSubiekt;
-//                    gt.Serwer = _configuration["Subiekt:Server"];
-//                    gt.Baza = _configuration["Subiekt:Database"];
-//                    gt.Autentykacja = AutentykacjaEnum.gtaAutentykacjaMieszana;
-//                    gt.Uzytkownik = _configuration["Subiekt:Username"];
-//                    gt.UzytkownikHaslo = _configuration["Subiekt:Password"];
-//                    gt.Operator = _configuration["Subiekt:Operator"];
-//                    gt.OperatorHaslo = _configuration["Subiekt:OperatorPassword"];
+                    subiekt = (Subiekt)gt.Uruchom(1, 4);
 
-//                    _subiekt = (Subiekt)gt.Uruchom(
-//                        (int)UruchomDopasujEnum.gtaUruchomDopasuj,
-//                        (int)UruchomEnum.gtaUruchomNieArchiwizujPrzyZamykaniu
-//                    );
-//                    _subiekt.Okno.Widoczne = false;
+                    if (subiekt == null)
+                    {
+                        throw new Exception("Błąd inicjalizacji Sfery. Sprawdź parametry logowania.");
+                    }
 
-//                    result = action(_subiekt);
-//                }
-//                catch (Exception ex)
-//                {
-//                    exception = ex;
-//                }
-//            });
+                    result = action(subiekt);
+                }
+                catch (Exception ex)
+                {
+                    exception = ex;
+                }
+                finally
+                {
+                    if (subiekt != null)
+                    {
+                        Marshal.ReleaseComObject(subiekt);
+                    }
 
-//            thread.SetApartmentState(ApartmentState.STA);
-//            thread.Start();
-//            thread.Join();
+                    if (gt != null)
+                    {
+                        Marshal.ReleaseComObject(gt);
+                    }
+                }
+            });
 
-//            if (exception != null)
-//            {
-//                throw exception;
-//            }
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            thread.Join();
 
-//            return result;
-//        }
+            if (exception != null)
+            {
+                throw exception;
+            }
 
-//        public void Dispose()
-//        {
-//            if (_subiekt != null)
-//            {
-//                Marshal.ReleaseComObject(_subiekt);
-//                _subiekt = null;
-//            }
-//            GC.Collect();
-//            GC.WaitForPendingFinalizers();
-//        }
-//    }
-//}
+            return result;
+        }
+
+        public void Dispose()
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+
+        public List<WarehouseDto> GetWarehouses()
+        {
+            var warehouses = new List<WarehouseDto>();
+
+            using (var connection = new SqlConnection(BuildSubiektConnectionString()))
+            {
+                connection.Open();
+
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = @"
+                        SELECT
+                            mag_Id,
+                            mag_Symbol,
+                            mag_Nazwa,
+                            mag_Opis
+                        FROM dbo.sl_Magazyn
+                        ORDER BY mag_Nazwa, mag_Symbol";
+
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            warehouses.Add(new WarehouseDto
+                            {
+                                Id = reader.GetInt32(0),
+                                Symbol = reader.IsDBNull(1) ? null : reader.GetString(1),
+                                Name = reader.IsDBNull(2) ? null : reader.GetString(2),
+                                Description = reader.IsDBNull(3) ? null : reader.GetString(3)
+                            });
+                        }
+                    }
+                }
+            }
+
+            return warehouses;
+        }
+
+        public List<CustomerDto> GetCustomers()
+        {
+            return Execute(subiekt =>
+            {
+                var customers = new List<CustomerDto>();
+
+                foreach (Kontrahent kh in subiekt.Kontrahenci)
+                {
+                    customers.Add(new CustomerDto
+                    {
+                        Id = (int)kh.Identyfikator,
+                        Symbol = kh.Symbol?.ToString(),
+                        Name = kh.Nazwa?.ToString(),
+                        TaxId = kh.NIP?.ToString(),
+                        IsActive = Convert.ToBoolean(kh.Aktywny)
+                    });
+
+                    Marshal.ReleaseComObject(kh);
+                }
+
+                return customers;
+            });
+        }
+
+        public List<ProductDto> GetProducts(int warehouseId)
+        {
+            return Execute(subiekt =>
+            {
+                var products = new List<ProductDto>();
+
+
+                foreach (Towar tw in subiekt.Towary)
+                {
+                    //double currentStock = (double)tw.StanMaks(warehouseId);
+                    
+                    products.Add(new ProductDto
+                    {
+                        Id = (int)tw.Identyfikator,
+                        Symbol = tw.Symbol?.ToString(),
+                        Name = tw.Nazwa?.ToString(),
+                        Barcode = tw.KodyKreskowe?.Podstawowy?.ToString(),
+                        Unit = tw.Miary?.Podstawowa?.ToString(),
+                        //Price = Convert.ToDecimal(tw.Ceny.Liczba),
+                        //Stock = currentStock
+                    });
+
+                    Marshal.ReleaseComObject(tw);
+
+                    if (products.Count >= 100) break;
+                }
+
+                return products;
+            });
+        }
+
+        public List<string> GetSubiektMembers()
+        {
+            return Execute(obj =>
+            {
+                var members = new List<string>();
+                var type = obj.GetType();
+
+
+                foreach (var m in type.GetMembers())
+                {
+                    members.Add($"{m.MemberType}: {m.Name}");
+                }
+
+                return members;
+            });
+        }
+
+        private static string BuildSubiektConnectionString()
+        {
+            var builder = new SqlConnectionStringBuilder
+            {
+                DataSource = ConfigurationManager.AppSettings["SubiektServer"],
+                InitialCatalog = ConfigurationManager.AppSettings["SubiektDatabase"],
+                UserID = ConfigurationManager.AppSettings["SubiektUser"],
+                Password = ConfigurationManager.AppSettings["SubiektPass"],
+                IntegratedSecurity = false
+            };
+
+            return builder.ConnectionString;
+        }
+
+       
+    }
+}

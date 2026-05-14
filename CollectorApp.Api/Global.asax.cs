@@ -1,11 +1,12 @@
-﻿using Autofac;
-using Autofac.Integration.WebApi;
-using System.Reflection;
+﻿using System.Reflection;
 using System.Web.Http;
-using CollectorApp.Api.Interfaces;
-using CollectorApp.Api.Services;
+using Autofac;
+using Autofac.Integration.WebApi;
 using AutoMapper;
+using CollectorApp.Api.Interfaces;
 using CollectorApp.Api.Mappings;
+using CollectorApp.Api.Services;
+using Swashbuckle.Application;
 
 namespace CollectorApp.Api
 {
@@ -20,8 +21,8 @@ namespace CollectorApp.Api
 
             // 2. Rejestracja naszych serwisów
             builder.RegisterType<BarcodeService>().As<IBarcodeService>().InstancePerRequest();
-            // builder.RegisterType<AuthService>().As<IAuthService>().InstancePerRequest(); // Odkomentuj jak przeniesiesz AuthService
-
+            builder.RegisterType<SubiektGTService>().AsSelf().InstancePerRequest();
+            builder.RegisterType<AuthService>().As<IAuthService>().InstancePerRequest();
             // 3. Konfiguracja AutoMappera
             var mapperConfig = new MapperConfiguration(cfg =>
             {
@@ -35,6 +36,8 @@ namespace CollectorApp.Api
 
             // Standardowe konfiguracje Web API
             GlobalConfiguration.Configure(WebApiConfig.Register);
+
+            builder.RegisterType<SubiektGTService>().AsSelf().InstancePerRequest();
         }
     }
 }

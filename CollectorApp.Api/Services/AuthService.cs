@@ -1,68 +1,66 @@
-﻿//using System;
-//using System.Collections.Generic;
-//using System.Linq;
-//using System.Security.Claims;
-//using System.Text;
-//using System.Threading.Tasks;
-//using System.Web;
-//using Microsoft.IdentityModel.JsonWebTokens;
-//using Microsoft.IdentityModel.Tokens;
+﻿using System;
+using System.Configuration;
+using System.Runtime.InteropServices;
+using CollectorApp.Api.Interfaces;
+using CollectorApp.Api.Models;
+using InsERT;
 
-//namespace CollectorApp.Api.Services
-//{
-//    public class AuthService : IAuthService
-//    {
-//        private readonly UserManager<IdentityUser> _userManager;
-//        private readonly IConfiguration _configuration;
+namespace CollectorApp.Api.Services
+{
+    public class AuthService : IAuthService
+    {
+        public bool Authenticate(LoginModel model)
+        {
+            if (model == null || string.IsNullOrWhiteSpace(model.Name) || string.IsNullOrWhiteSpace(model.Surname))
+                return false;
 
-//        public AuthService(UserManager<IdentityUser> userManager, IConfiguration configuration)
-//        {
-//            _userManager = userManager;
-//            _configuration = configuration;
-//        }
-//        public async Task<AuthResponseDto> LoginAsync(LoginModel model)
-//        {
-//            var user = await _userManager.FindByEmailAsync(model.Email);
+            bool isAuthenticated = false;
+            string fullName = $"{model.Surname} {model.Name}".Trim();
 
-//            if (user == null || !await _userManager.CheckPasswordAsync(user, model.Password))
-//            {
-//                throw new BadRequestException("Invalid login attempt.");
-//            }
+            var thread = new System.Threading.Thread(() =>
+            {
+                GT gtTest = null;
+                object subiektTest = null;
 
-//            var authClaims = new List<Claim>
-//        {
-//            new Claim(ClaimTypes.Name, user.Email!),
-//            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-//        };
+                try
+                {
+                    gtTest = new GT();
+                    gtTest.Produkt = ProduktEnum.gtaProduktSubiekt;
+                    gtTest.Serwer = ConfigurationManager.AppSettings["SubiektServer"];
+                    gtTest.Baza = ConfigurationManager.AppSettings["SubiektDatabase"];
+                    gtTest.Autentykacja = AutentykacjaEnum.gtaAutentykacjaMieszana;
+                    gtTest.Uzytkownik = ConfigurationManager.AppSettings["SubiektUser"];
+                    gtTest.UzytkownikHaslo = ConfigurationManager.AppSettings["SubiektPass"];
 
-//            var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
+                    gtTest.Operator = fullName;
+                    gtTest.OperatorHaslo = model.Password;
 
-//            var token = new JwtSecurityToken(
-//                issuer: _configuration["Jwt:Issuer"],
-//                audience: _configuration["Jwt:Audience"],
-//                expires: DateTime.Now.AddHours(3),
-//                claims: authClaims,
-//                signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
-//            );
+                    subiektTest = (Subiekt)gtTest.Uruchom(1, 4);
 
-//            return new AuthResponseDto
-//            {
-//                Token = new JwtSecurityTokenHandler().WriteToken(token),
-//                Expiration = token.ValidTo
-//            };
-//        }
+                    if (subiektTest != null)
+                    {
+                        isAuthenticated = true;
+                        var s = (Subiekt)subiektTest;
+                        s.Zakoncz();
+                        Marshal.ReleaseComObject(s);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Authentication error: {ex.StackTrace}");
+                    isAuthenticated = false;
+                }
+                finally
+                {
+                    if (gtTest != null) Marshal.ReleaseComObject(gtTest);
+                }
+            });
 
-//        public async Task RegisterAsync(LoginModel model)
-//        {
-//            var user = new IdentityUser { UserName = model.Email, Email = model.Email };
-//            var result = await _userManager.CreateAsync(user, model.Password);
+            thread.SetApartmentState(System.Threading.ApartmentState.STA);
+            thread.Start();
+            thread.Join();
 
-//            if (!result.Succeeded)
-//            {
-//                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-//                throw new BadRequestException(errors);
-//            }
-//        }
-//    }
-
-//}
+            return isAuthenticated;
+        }
+    }
+}

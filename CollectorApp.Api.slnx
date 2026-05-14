@@ -1,3 +1,11 @@
 <Solution>
-  <Project Path="CollectorApp.Api/CollectorApp.Api.csproj" />
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="CollectorApp.Api/CollectorApp.Api.csproj" Id="95964de6-6ed5-4619-92b8-662600c7e65e">
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="Release|x86" Project="x86" />
+  </Project>
 </Solution>
